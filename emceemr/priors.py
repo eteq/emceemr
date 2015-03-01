@@ -1,21 +1,15 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-import math
-
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
-from matplotlib import pyplot as plt
 
-from astropy import units as u
-from astropy import nddata
+__all__ = ['Prior', 'UniformPrior', 'NormalPrior', 'ScaleFreePrior', 'KDEPrior',
+           'DeltaPrior']
 
-import emcee
-
-#used alot, so we slightly speed it up by pre-calcing
-INF = np.inf
-MINF = -INF
+# used alot, so we slightly speed it up by pre-calcing
+MINF = -np.inf
 TWOPI = 2 * np.pi
 
 
@@ -23,6 +17,9 @@ class Prior(object):
     """
     An abstract class that is here mostly just to document how the priors will be called
     """
+
+    __metaclass__ = ABCMeta
+
     @abstractmethod
     def __call__(self, value, allparamdct={}):
         raise NotImplementedError
@@ -56,7 +53,6 @@ class UniformPrior(Prior):
         else:
             self.upper = upper
             self.upper_var = None
-
 
         if self.lower is not None and self.upper is not None and self.lower > self.upper:
             raise ValueError('lower is bigger than upper!')
@@ -93,7 +89,7 @@ class UniformPrior(Prior):
         lower = self.lower if self.lower_var is None else self.lower_var
         upper = self.upper if self.upper_var is None else self.upper_var
         vrs = ': lower={0}, upper={1}'
-        return r.split(' at ')[0]  + vrs.format(lower, upper) + '>'
+        return r.split(' at ')[0] + vrs.format(lower, upper) + '>'
 
 
 class NormalPrior(Prior):
@@ -171,7 +167,8 @@ class ScaleFreePrior(Prior):
         else:
             raise ValueError("Scale-free prior is improper, can't sample")
 
-class EmpiricalPrior(Prior):
+
+class KDEPrior(Prior):
     """
     Prior defined by the histogram of an array - uses gaussian kde to estimate
     the density
