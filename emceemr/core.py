@@ -72,6 +72,13 @@ class Model(object):
 
         return lnpri + cpri + np.sum(self.lnprob(*params))
 
+    def args_to_param_dict(self, args):
+        """
+        Translate an argument list into a dictionary mapping names to
+        parameters.
+        """
+        return zip(self.param_names, args)
+
     def get_sampler(self, nwalkers=None, **kwargs):
         """
         nwalkers defaults to 4x parameters.  Remaining kwargs go into

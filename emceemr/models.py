@@ -1,24 +1,34 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+from abc import abstractmethod
+from scipy import special
+
 import numpy as np
 
 from .core import Model
 
-__all__ = ['LineModel']
+__all__ = ['LineModel', 'GaussianLineModel', 'LorentzianLineModel',
+           'VoigtLineModel']
 
 
 class LineModel(Model):
-    param_names = tuple('linecen, linesig, totflux, noisesig'.split(', '))
+    """
+    A model for a spectral line with an optional polynomial continuum/baseline
+    (called the "background" here). This is an abstract class - concrete classes
+    need the model method.
+    """
+    param_names = tuple('linecen, linewidth, totflux, noisesig'.split(', '))
 
-    def __init__(self, v, data, priors, polydeg=None, legendre_poly=False, baselinevdata=None):
-        self.v = v
+    def __init__(self, x, data, priors, polydeg=None, legendre_poly=False,
+                       backgroundxdata=None):
+        self.x = x
         self.data = data
 
-        if baselinevdata is None:
-            self.v_baseline = self.data_baseline = None
+        if backgroundxdata is None:
+            self.x_background = self.data_background = None
         else:
-            self.v_baseline, self.data_baseline = baselinevdata
+            self.x_background, self.data_background = backgroundxdata
 
         if polydeg is None:
             # try to determine the polydeg from the largest 'poly#' # if priors
@@ -46,7 +56,7 @@ class LineModel(Model):
                 self.lpoly = None
         super(LineModel, self).__init__(priors)
 
-    def baseline(self, v, polyargs):
+    def background(self, v, polyargs):
         if len(polyargs) > 0:
             if self.lpoly is None:
                 return np.polyval(polyargs, v)
@@ -56,26 +66,23 @@ class LineModel(Model):
         else:
             return 0
 
-    def model(self, v, linecen, linesig, totflux, noisesig, *polyargs):
-        if v is None:
-            v = self.v
+    @abstractmethod
+    def model(self, x, linecen, linewidth, totflux, noisesig, *polyargs):
+        raise NotImplementedError
 
-        exparg = -0.5*((v-linecen)/linesig)**2
-        return totflux*(2*np.pi)**-0.5*np.exp(exparg) / linesig + self.baseline(v, polyargs)
-
-    def lnprob(self, linecen, linesig, totflux, noisesig, *polyargs):
-        model = self.model(self.v, linecen, linesig, totflux, noisesig, *polyargs)
+    def lnprob(self, linecen, linewidth, totflux, noisesig, *polyargs):
+        model = self.model(self.x, linecen, linewidth, totflux, noisesig, *polyargs)
         lnp = -0.5*((self.data - model)/noisesig)**2 - np.log(noisesig)
 
-        if self.v_baseline is None:
+        if self.x_background is None:
             return lnp
         else:
-            dmm_baseline = self.data_baseline - self.baseline(self.v_baseline, polyargs)
-            baselinelnp = -0.5*(dmm_baseline/noisesig)**2 - np.log(noisesig)
-            return np.concatenate((lnp, baselinelnp))
+            dmm_background = self.data_background - self.background(self.x_background, polyargs)
+            backgroundlnp = -0.5*(dmm_background/noisesig)**2 - np.log(noisesig)
+            return np.concatenate((lnp, backgroundlnp))
 
     def plot_model(self, sampler=None, perc=50, plot_model=True, plot_data=True,
-                   plot_baseline_data=False, plot_baseline=True, msk=None,
+                   plot_background_data=False, plot_background=True, msk=None,
                    data_smoothing=None):
         from matplotlib import pyplot as plt
         from scipy import hanning
@@ -98,21 +105,61 @@ class LineModel(Model):
                 data = self.data
             else:
                 data = np.convolve(self.data, smoothing_window, 'same')
-            plt.step(self.v, data, c='k', where='mid')
+            plt.step(self.x, data, c='k', where='mid')
 
-        if plot_baseline_data:
-            edges = list(np.where(np.diff(self.v_baseline) < 0)[0]+1)
+        if plot_background_data:
+            edges = list(np.where(np.diff(self.x_background) < 0)[0]+1)
             edges.append(None)
             edges.insert(0, None)
             for idx1, idx2 in zip(edges[:-1], edges[1:]):
                 if smoothing_window is None:
-                    bdata = self.data_baseline
+                    bdata = self.data_background
                 else:
-                    bdata = np.convolve(self.data_baseline, smoothing_window, 'same')
-                plt.step(self.v_baseline[idx1:idx2], bdata[idx1:idx2], c='g', where='mid')
+                    bdata = np.convolve(self.data_background, smoothing_window, 'same')
+                plt.step(self.x_background[idx1:idx2], bdata[idx1:idx2], c='g', where='mid')
 
-        if plot_baseline:
-            plt.plot(self.v, self.baseline(self.v, params[4:]), c='b', ls=':', lw=2)
+        if plot_background:
+            plt.plot(self.x, self.background(self.x, params[4:]), c='b', ls=':', lw=2)
 
         if plot_model:
-            plt.plot(self.v, self.model(self.v, *params), c='r', lw=2)
+            plt.plot(self.x, self.model(self.x, *params), c='r', lw=2)
+
+
+class GaussianLineModel(LineModel):
+    def model(self, x, linecen, linewidth, totflux, noisesig, *polyargs):
+        if x is None:
+            x = self.x
+
+        exparg = -0.5*((x-linecen)/linewidth)**2
+        return totflux*(2*np.pi)**-0.5*np.exp(exparg) / linewidth + self.background(x, polyargs)
+
+
+class LorentzianLineModel(LineModel):
+    def model(self, x, linecen, linewidth, totflux, noisesig, *polyargs):
+        if x is None:
+            x = self.x
+
+        return totflux/(1+((x-linecen)/linewidth)**2)/np.pi/linewidth + self.background(x, polyargs)
+
+
+class VoigtLineModel(LineModel):
+    param_names = tuple('linecen, gausssig, lorentzwidth, totflux, noisesig'.split(', '))
+
+    def model(self, x, linecen, gausssig, lorentzwidth, totflux, noisesig, *polyargs):
+        if x is None:
+            x = self.x
+
+        z = (x + 1j*lorentzwidth)*2**-0.5/gausssig
+        line = special.erfcx(-1j*z).real*(2*np.pi)**-0.5/gausssig
+        return totflux*line + self.background(x, polyargs)
+
+    def lnprob(self, linecen, gausssig, lorentzwidth, totflux, noisesig, *polyargs):
+        model = self.model(self.x, linecen, gausssig, lorentzwidth, totflux, noisesig, *polyargs)
+        lnp = -0.5*((self.data - model)/noisesig)**2 - np.log(noisesig)
+
+        if self.x_background is None:
+            return lnp
+        else:
+            dmm_background = self.data_background - self.background(self.x_background, polyargs)
+            backgroundlnp = -0.5*(dmm_background/noisesig)**2 - np.log(noisesig)
+            return np.concatenate((lnp, backgroundlnp))
