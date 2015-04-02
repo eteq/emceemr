@@ -110,7 +110,7 @@ class Model(object):
             nwalkers = self.default_walkers
 
         iparams = self.initalize_params(cendct, stddevdct, nwalkers)
-        self.last_sampler = self.get_sampler(nwalkers=None)
+        self.last_sampler = self.get_sampler(nwalkers=None, **kwargs)
 
         if burnin:
             iparams = self.last_sampler.run_mcmc(iparams, burnin)[0]
