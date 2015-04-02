@@ -21,6 +21,11 @@ class Prior(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
+    def __init__(self, init_from):
+        self.init_from = init_from
+
+
+    @abstractmethod
     def __call__(self, value, allparamdct={}):
         raise NotImplementedError
 
@@ -33,13 +38,24 @@ class Prior(object):
         """
         raise NotImplementedError
 
+    def initialize(self, n):
+        """
+        Initialize a parameter associated with this prior.  This means using the
+        prior in `init_from` if provided, otherwise sampling directly from this
+        prior.
+        """
+        if self.init_from is None:
+            return self.sample(n)
+        else:
+            return self.init_from.sample(n)
+
 
 class UniformPrior(Prior):
     """
     A uniform prior.  One or both of the sides might be tied to another
     parameter, in which case it should be passed in as a string
     """
-    def __init__(self, lower, upper):
+    def __init__(self, lower, upper, init_from=None):
         if isinstance(lower, basestring):
             self.lower = None
             self.lower_var = lower
@@ -56,6 +72,8 @@ class UniformPrior(Prior):
 
         if self.lower is not None and self.upper is not None and self.lower > self.upper:
             raise ValueError('lower is bigger than upper!')
+
+        super(UniformPrior, self).__init__(init_from)
 
     def __call__(self, value, allparamdct={}):
         if self.lower_var is not None:
@@ -96,7 +114,7 @@ class NormalPrior(Prior):
     """
     A standard 1D gaussian prior, possibly clipped
     """
-    def __init__(self, mu, var=None, sig=None, lower=None, upper=None):
+    def __init__(self, mu, var=None, sig=None, lower=None, upper=None, init_from=None):
         self.mu = mu
 
         if var is None:
@@ -109,6 +127,8 @@ class NormalPrior(Prior):
             self.var = var
 
         self.unif = UniformPrior(lower, upper)
+
+        super(NormalPrior, self).__init__(init_from)
 
     @property
     def sig(self):
@@ -148,11 +168,13 @@ class ScaleFreePrior(Prior):
     Jeffry's prior for a scale parameter, goes like 1/val.  An improper prior
     unless lower and upper are set.
     """
-    def __init__(self, lower=None, upper=None):
+    def __init__(self, lower=None, upper=None, init_from=None):
         if lower is None or lower <= 0:
             lower = 0
         self.lower = lower
         self.upper = upper
+
+        super(ScaleFreePrior, self).__init__(init_from)
 
     def __call__(self, value, allparamdct={}):
         if value <= self.lower or value >= self.upper:
@@ -173,11 +195,13 @@ class KDEPrior(Prior):
     Prior defined by the histogram of an array - uses gaussian kde to estimate
     the density
     """
-    def __init__(self, samples, lower=None, upper=None, kdebw=None):
+    def __init__(self, samples, lower=None, upper=None, kdebw=None, init_from=None):
         from scipy.stats.kde import gaussian_kde
         self.samples = np.array(samples, copy=False).flatten()
         self.kde = gaussian_kde(self.samples, kdebw)
         self.unif = UniformPrior(lower, upper)
+
+        super(KDEPrior, self).__init__(init_from)
 
     def __call__(self, value, allparamdct={}):
         uniflp = self.unif(value, allparamdct)
@@ -193,6 +217,7 @@ class DeltaPrior(Prior):
     """
     def __init__(self, value):
         self.value = value
+        super(DeltaPrior, self).__init__(None)
 
     def __call__(self, value, allparamdct={}):
         if value != self.value:

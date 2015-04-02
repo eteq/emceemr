@@ -94,7 +94,7 @@ class Model(object):
             cen = cendct.pop(n, None)
             if cen is None:
                 try:
-                    iparams.append(self.get_prior(n).sample(nwalkers))
+                    iparams.append(self.get_prior(n).initialize(nwalkers))
                 except Exception as e:
                     raise ValueError('Problem sampling from parameter "{0}"'.format(n), e)
             else:
