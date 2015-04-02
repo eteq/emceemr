@@ -110,16 +110,24 @@ class Model(object):
             nwalkers = self.default_walkers
 
         iparams = self.initalize_params(cendct, stddevdct, nwalkers)
-        self.last_sampler = self.get_sampler(nwalkers=None, **kwargs)
+        self.last_sampler = sampler = self.get_sampler(nwalkers=None, **kwargs)
 
         if burnin:
-            iparams = self.last_sampler.run_mcmc(iparams, burnin)[0]
-            self.last_burnin_chain = self.last_sampler.chain
-            self.last_sampler.reset()
+            try:
+                self.last_sampler = None
+                iparams = sampler.run_mcmc(iparams, burnin)[0]
+            finally:
+                self.last_sampler = sampler
+            self.last_burnin_chain = sampler.chain
+            sampler.reset()
 
-        self.last_sampler.run_mcmc(iparams, iters)
+        try:
+            self.last_sampler = None
+            sampler.run_mcmc(iparams, iters)
+        finally:
+            self.last_sampler = sampler
 
-        return self.last_sampler
+        return sampler
 
     def triangle_plot(self, sampler=None, chainstoinclude='all', **kwargs):
         if sampler is None:
