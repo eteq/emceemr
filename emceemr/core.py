@@ -79,20 +79,21 @@ class Model(object):
         """
         return zip(self.param_names, args)
 
-    def get_sampler(self, nwalkers=None, **kwargs):
+    def get_sampler(self, nwalkers='4p', **kwargs):
         """
-        nwalkers defaults to 4x parameters.  Remaining kwargs go into
-        emcee.EnsembleSampler
+        If a string with the letter p, means that many times the number of
+        parameters. Anything else that's not string-convertable is invalid.
+
+        Remaining kwargs go into emcee.EnsembleSampler
         """
-        if nwalkers is None:
-            nwalkers = self.default_walkers
+        if isinstance(nwalkers, basestring):
+            nwalkers = int(nwalkers.replace('p', '')) * len(self.param_names)
+        else:
+            nwalkers = int(nwalkers)
 
         return emcee.EnsembleSampler(nwalkers, len(self.param_names), self, **kwargs)
 
-    def initalize_params(self, cendct={}, stddevdct={}, nwalkers=None):
-        if nwalkers is None:
-            nwalkers = len(self.param_names)*4
-
+    def initalize_params(self, nwalkers, cendct={}, stddevdct={}):
         cendct = dict(cendct)
         stddevdct = dict(stddevdct)
 
@@ -112,12 +113,9 @@ class Model(object):
         return np.array(iparams).T
 
     def initialize_and_sample(self, iters, burnin=None, cendct={}, stddevdct={},
-                              nwalkers=None, **kwargs):
-        if nwalkers is None:
-            nwalkers = self.default_walkers
-
-        iparams = self.initalize_params(cendct, stddevdct, nwalkers)
-        self.last_sampler = sampler = self.get_sampler(nwalkers=None, **kwargs)
+                              nwalkers='4p', **kwargs):
+        self.last_sampler = sampler = self.get_sampler(nwalkers=nwalkers, **kwargs)
+        iparams = self.initalize_params(sampler.k, cendct, stddevdct)
 
         if burnin:
             try:
