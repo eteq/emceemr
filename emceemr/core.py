@@ -93,29 +93,13 @@ class Model(object):
 
         return emcee.EnsembleSampler(nwalkers, len(self.param_names), self, **kwargs)
 
-    def initalize_params(self, nwalkers, cendct={}, stddevdct={}):
-        cendct = dict(cendct)
-        stddevdct = dict(stddevdct)
-
-        iparams = []
-        for n in self.param_names:
-            cen = cendct.pop(n, None)
-            if cen is None:
-                try:
-                    iparams.append(self.get_prior(n).initialize(nwalkers))
-                except Exception as e:
-                    raise ValueError('Problem sampling from parameter "{0}"'.format(n), e)
-            else:
-                iparams.append(np.random.randn(nwalkers) * stddevdct.pop(n, 1e-3))
-        if cendct:
-            raise ValueError('had unused cendct values {0}'.format())
-
+    def initalize_params(self, nwalkers):
+        iparams = [self.get_prior(n).initialize(nwalkers) for n in self.param_names]
         return np.array(iparams).T
 
-    def initialize_and_sample(self, iters, burnin=None, cendct={}, stddevdct={},
-                              nwalkers='4p', **kwargs):
+    def initialize_and_sample(self, iters, burnin=None, nwalkers='4p', **kwargs):
         self.last_sampler = sampler = self.get_sampler(nwalkers=nwalkers, **kwargs)
-        iparams = self.initalize_params(sampler.k, cendct, stddevdct)
+        iparams = self.initalize_params(sampler.k)
 
         if burnin:
             try:
