@@ -204,6 +204,18 @@ class Model(object):
         idx = self.param_names.index(nm)
         return chain[:, :, idx]
 
-    @property
-    def default_walkers(self):
-        return len(self.param_names)*4
+    def get_percentiles(self, fracs, individualchains=False):
+        """
+        Get fractional samples from the chains.  I.e. .1 is the 10th percentile,
+        .5 is the median, etc.
+
+        First axis is parameters, last is over `fracs`
+        """
+        if sampler is None:
+            sampler = self.last_sampler
+        if individualchains:
+            chain = sampler.chain
+        else:
+            chain = sampler.flatchain
+
+        return np.percentile(chain, np.array(fracs)*100, axis=0).T
