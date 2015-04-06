@@ -4,12 +4,8 @@ from __future__ import (absolute_import, division, print_function,
 
 import abc
 
-import re
-
 import numpy as np
-
 import emcee
-import triangle
 
 __all__ = ['Model']
 
@@ -98,108 +94,15 @@ class Model(object):
         return np.array(iparams).T
 
     def initialize_and_sample(self, iters, burnin=None, nwalkers='4p', **kwargs):
-        self.last_sampler = sampler = self.get_sampler(nwalkers=nwalkers, **kwargs)
+        sampler = self.get_sampler(nwalkers=nwalkers, **kwargs)
         iparams = self.initalize_params(sampler.k)
 
         if burnin:
-            try:
-                self.last_sampler = None
-                iparams = sampler.run_mcmc(iparams, burnin)[0]
-            finally:
-                self.last_sampler = sampler
-            self.last_burnin_chain = sampler.chain
+            iparams = sampler.run_mcmc(iparams, burnin)[0]
+            sampler.burnin_chain = sampler.chain
+            sampler.burnin_lnprob = sampler.lnprobability
             sampler.reset()
 
-        try:
-            self.last_sampler = None
-            sampler.run_mcmc(iparams, iters)
-        finally:
-            self.last_sampler = sampler
+        sampler.run_mcmc(iparams, iters)
 
         return sampler
-
-    def triangle_plot(self, sampler=None, chainstoinclude='all', **kwargs):
-        if sampler is None:
-            sampler = self.last_sampler
-
-        if chainstoinclude == 'all':
-            msk = slice(None)
-        elif isinstance(chainstoinclude, basestring):
-            rex = re.compile(chainstoinclude)
-            msk = np.array([bool(rex.match(pnm)) for pnm in self.param_names])
-            chains = sampler.flatchain[:, msk]
-            kwargs.setdefault('labels', np.array(self.param_names)[msk])
-        else:
-            # assume its a list of parameters
-            chainstoinclude = list(chainstoinclude)
-            msk = []
-            for pnm in self.param_names:
-                if pnm in chainstoinclude:
-                    msk.append(True)
-                    chainstoinclude.remove(pnm)
-                else:
-                    msk.append(False)
-            msk = np.array(msk)
-        chains = sampler.flatchain[:, msk]
-        kwargs.setdefault('labels', np.array(self.param_names)[msk])
-
-        triangle.corner(chains, **kwargs)
-
-    def plot_chains(self, sampler=None, incl_burnin=True):
-        from matplotlib import pyplot as plt
-
-        if sampler is None:
-            sampler = self.last_sampler
-        if incl_burnin is True:
-            burnin_ch = self.last_burnin_chain
-        elif incl_burnin is False or incl_burnin is None:
-            burnin_ch = None
-        else:
-            burnin_ch = incl_burnin
-
-        subplot_rows = len(self.param_names)
-        subplot_cols = 1 + int(burnin_ch is not None)
-        for i, nm in enumerate(self.param_names):
-            plt.subplot(subplot_rows, subplot_cols, i * subplot_cols + 1)
-            if burnin_ch is not None:
-                if i == 0:
-                    plt.title('burnin')
-                burnin_ch = self.last_burnin_chain.T[i]
-                plt.plot(burnin_ch)
-                plt.axvline(0, ls='--', c='k')
-                plt.subplot(subplot_rows, subplot_cols, i * subplot_cols + 2)
-                if i == 0:
-                    plt.title('samples')
-            ch = sampler.chain.T[i]
-            plt.plot(ch)
-            plt.ylabel(nm)
-
-    def get_name_chain(self, nm, sampler=None):
-        if sampler is None:
-            sampler = self.last_sampler
-            chain = sampler.chain
-        elif sampler == 'burnin':
-            chain = self.last_burnin_chain
-        elif hasattr(sampler, 'chain'):
-            chain = sampler.chain
-        else:
-            chain = sampler
-
-        idx = self.param_names.index(nm)
-        return chain[:, :, idx]
-
-    def get_percentiles(self, fracs, individualchains=False):
-        """
-        Get fractional samples from the chains.  I.e. .1 is the 10th percentile,
-        .5 is the median, etc.
-
-        First axis is parameters, last is over `fracs`
-        """
-        if sampler is None:
-            sampler = self.last_sampler
-        if individualchains:
-            chain = sampler.chain
-        else:
-            chain = sampler.flatchain
-
-        return np.percentile(chain, np.array(fracs)*100, axis=0).T
