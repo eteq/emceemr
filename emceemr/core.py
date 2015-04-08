@@ -14,6 +14,7 @@ MINF = -np.inf
 
 class Model(object):
     __metaclass__ = abc.ABCMeta
+    has_blobs = False
 
     def __init__(self, priors):
         if not getattr(self, 'param_names', None):
@@ -61,12 +62,22 @@ class Model(object):
         for arg, pri in zip(params, self.priors):
             lnpri += pri(arg)
             if lnpri == MINF:
-                return MINF
+                if self.has_blobs:
+                    return MINF, None
+                else:
+                    return MINF
         cpri = self.cross_priors(*params)
         if cpri == MINF:
-            return MINF
+            if self.has_blobs:
+                return MINF, None
+            else:
+                return MINF
 
-        return lnpri + cpri + np.sum(self.lnprob(*params))
+        if self.has_blobs:
+            lnp, blob = self.lnprob(*params)
+            return lnpri + cpri + np.sum(lnp), blob
+        else:
+            return lnpri + cpri + np.sum(self.lnprob(*params))
 
     def args_to_param_dict(self, args):
         """
