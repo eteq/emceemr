@@ -8,10 +8,11 @@ import numpy as np
 
 import triangle
 
-__all__ = ['triangle_plot', 'plot_chains', 'get_chain_by_name', 'get_percentiles']
+__all__ = ['triangle_plot', 'plot_chains', 'get_chain_by_name', 'get_percentiles', 'sampler_info_string']
 
 
-def triangle_plot(model, sampler, chainstoinclude='all', **kwargs):
+def triangle_plot(model, sampler, chainstoinclude='all', chainstoadd=None,
+                  **kwargs):
     if chainstoinclude == 'all':
         msk = slice(None)
     elif isinstance(chainstoinclude, basestring):
@@ -31,8 +32,16 @@ def triangle_plot(model, sampler, chainstoinclude='all', **kwargs):
                 msk.append(False)
         msk = np.array(msk)
     chains = sampler.flatchain[:, msk]
-    kwargs.setdefault('labels', np.array(model.param_names)[msk])
 
+    labels = list(np.array(model.param_names)[msk])
+    if chainstoadd is not None:
+        arrs = []
+        for nm, arr in chainstoadd.iteritems():
+            labels.append(nm)
+            arrs.append(arr)
+        chains = np.concatenate((chains.T, arrs)).T
+
+    kwargs.setdefault('labels', labels)
     triangle.corner(chains, **kwargs)
 
 
@@ -64,7 +73,7 @@ def plot_chains(model, sampler, incl_burnin=True):
         plt.ylabel(nm)
 
 
-def get_chain_by_name(model, sampler, nm, incl_burnin=True):
+def get_chain_by_name(model, sampler, nm, incl_burnin=False):
     idx = model.param_names.index(nm)
     chain = sampler.chain
 
@@ -79,6 +88,15 @@ def get_chain_by_name(model, sampler, nm, incl_burnin=True):
         chain = np.concatenate((burnin_ch, chain), axis=1)
 
     return chain[:, :, idx]
+
+def sampler_info_string(model, sampler):
+    strs = ['Acors:']
+    for i, nm in enumerate(model.param_names):
+        strs.append('{0}: {1}'.format(nm, sampler.acor[i]))
+    strs.append('Acceptance Fractions:')
+    strs.append(np.array2string(sampler.acceptance_fraction, separator=', '))
+
+    return '\n'.join(strs)
 
 
 def get_percentiles(sampler, fracs, individualchains=False):
