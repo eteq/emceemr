@@ -12,7 +12,7 @@ __all__ = ['triangle_plot', 'plot_chains', 'get_chain_by_name', 'get_percentiles
 
 
 def triangle_plot(model, sampler, chainstoinclude='all', chainstoadd=None,
-                  **kwargs):
+                  relabel={}, **kwargs):
     if chainstoinclude == 'all':
         msk = slice(None)
     elif isinstance(chainstoinclude, basestring):
@@ -41,7 +41,13 @@ def triangle_plot(model, sampler, chainstoinclude='all', chainstoadd=None,
             arrs.append(arr)
         chains = np.concatenate((chains.T, arrs)).T
 
-    kwargs.setdefault('labels', labels)
+    labels = kwargs.setdefault('labels', labels)
+    for old, new in relabel.items():
+        if old in labels:
+            labels[labels.index(old)] = new
+        else:
+            raise KeyError('Could not find label {0}'.format(old))
+
     triangle.corner(chains, **kwargs)
 
 
