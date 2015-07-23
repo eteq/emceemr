@@ -9,7 +9,7 @@ import numpy as np
 from .core import Model
 
 __all__ = ['LineModel', 'GaussianLineModel', 'LorentzianLineModel',
-           'VoigtLineModel']
+           'VoigtLineModel', 'SersicModel']
 
 
 class LineModel(Model):
@@ -163,3 +163,51 @@ class VoigtLineModel(LineModel):
             dmm_background = self.data_background - self.background(self.x_background, polyargs)
             backgroundlnp = -0.5*(dmm_background/noisesig)**2 - np.log(noisesig)
             return np.concatenate((lnp, backgroundlnp))
+
+
+class SersicModel(Model):
+    param_names = 'flux, n, reffmaj, ellipticity, cenx, ceny, theta'.split(', ')
+    def __init__(self, xg, yg, dat, ivar, priors):
+        self.xg = xg
+        self.yg = yg
+        self.dat = dat
+        self.ivar = ivar
+        self.infiniteivar = ~np.isfinite(self.ivar)
+
+        super(SersicModel, self).__init__(priors)
+
+    def lnprob(self, flux, n, reffmaj, ellipticity, cenx, ceny, theta):
+        mod = self.get_model(flux, n, reffmaj, ellipticity, cenx, ceny, theta)
+        ddat = self.dat - mod
+        res = -0.5 * (self.ivar * ddat * ddat)  # + np.log(2*np.pi*self.ivar))  #just a constant
+        res[self.infiniteivar] = 0
+        return res
+
+    def get_model(self, flux, n, reffmaj, ellipticity, cenx, ceny, theta):
+        dx = self.xg - cenx
+        dy = self.yg - ceny
+        if theta != 0:
+            thrad = np.radians(theta)
+            rotmat = [[np.cos(thrad), -np.sin(thrad)],
+                      [np.sin(thrad), np.cos(thrad)]]
+            dxy = np.array([dx, dy], copy=False)
+            dx, dy = np.dot(rotmat, dxy.reshape(2, -1)).reshape(dxy.shape)
+
+        reffmin = reffmaj * (1 - ellipticity)
+        # rreff = np.hypot(dx/reffmin, dy/reffmaj)
+        dx = dx / reffmin
+        dy = dy / reffmaj
+        rreff = np.sqrt(dx*dx + dy*dy)
+
+        bn = self.bn(n)
+        # normalize to make the integral over the areal profile to infinity = 1
+        N = bn**(2*n) / (2*np.pi * reffmaj*reffmin * n * special.gamma(2*n))
+        return flux * N * np.exp(-bn * rreff**(1/n))
+
+        # more expressive way:
+        # N = 2*np.pi*reffmaj*reffmin * n * special.gamma(2*n) * ebn * bn**(-2*n)
+        # return flux * np.exp(-bn*(rreff**(1/n)-1)) / N
+
+    @staticmethod
+    def bn(n):
+        return special.gammaincinv(2 * n, 0.5)
