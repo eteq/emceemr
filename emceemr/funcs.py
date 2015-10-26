@@ -95,6 +95,7 @@ def get_chain_by_name(model, sampler, nm, incl_burnin=False):
 
     return chain[:, :, idx]
 
+
 def sampler_info_string(model, sampler):
     strs = ['Acors:']
     for i, nm in enumerate(model.param_names):
@@ -117,7 +118,7 @@ def get_percentiles(sampler, fracs, individualchains=False):
     else:
         chain = sampler.flatchain
 
-    return np.percentile(chain, np.array(fracs)*100, axis=0).T
+    return np.percentile(chain, np.array(fracs) * 100, axis=0).T
 
 
 def continue_sampling(sampler, iters):
