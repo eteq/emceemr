@@ -80,8 +80,22 @@ def plot_chains(model, sampler, incl_burnin=True):
 
 
 def get_chain_by_name(model, sampler, nm, incl_burnin=False):
+    """
+    Uses the parameter names in`model` to find the appropriate chain.  If
+    `incl_burnin` is True, it also pre-pends the burnin period to the returned
+    chain.
+
+    Note that sampler can also be the chain itself (although in that case
+    `incl_burnin` should be False).
+    """
     idx = model.param_names.index(nm)
-    chain = sampler.chain
+    if hasattr(sampler, 'chain'):
+        chain = sampler.chain
+    else:
+        if incl_burnin:
+            raise ValueError('Cannot incl_burnin if the chain is provided '
+                             'directly instead of the whole sampler.')
+        chain = sampler
 
     if incl_burnin is True:
         burnin_ch = sampler.burnin_chain
