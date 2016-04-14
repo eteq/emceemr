@@ -6,7 +6,10 @@ import re
 
 import numpy as np
 
-import triangle
+try:
+    from corner import corner as corner_plot
+except ImportError:
+    from triangle import corner as corner_plot
 
 __all__ = ['triangle_plot', 'plot_chains', 'get_chain_by_name', 'get_percentiles', 'sampler_info_string']
 
@@ -48,7 +51,7 @@ def triangle_plot(model, sampler, chainstoinclude='all', chainstoadd=None,
         else:
             raise KeyError('Could not find label {0}'.format(old))
 
-    triangle.corner(chains, **kwargs)
+    corner_plot(chains, **kwargs)
 
 
 def plot_chains(model, sampler, incl_burnin=True):
