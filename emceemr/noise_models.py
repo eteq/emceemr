@@ -36,15 +36,15 @@ def generate_logpdfmodel_class(frozen_distribution,
 
     def log_pdf_with_meanmodel(*args):
         kwargs = dict(zip(params.keys(), args[2:]))
-        kwargs[mean_model_param_name] = args[1]
+        kwargs[mean_model_param_name] = args[0]
         kwargs['loc'] = kwargs.pop(location_param_name)
         kwargs['scale'] = kwargs.pop(scale_param_name)
-        return dist.logpdf(args[0], **kwargs)
+        return dist.logpdf(args[1], **kwargs)
 
     members = {
         '__module__': str(modname),
         'distribution': dist,
-        'inputs': ('data', 'mean_model'),
+        'inputs': ('mean_model_result', 'data'),
         'outputs': ('logpdf',),
         'evaluate': staticmethod(log_pdf_with_meanmodel),
     }
