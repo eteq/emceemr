@@ -87,7 +87,7 @@ class ProbabilisticModel:
         params_str = ', '.join(self.parameters.keys())
         return f'<{cname}({params_str})>'
 
-    def ln_priors(self, parameter_values, data):
+    def ln_priors(self, parameter_values, datax, datay):
         lpri = 0
         for p, val in zip(self.parameters.values(), parameter_values):
             if p.prior is not None:
@@ -98,14 +98,14 @@ class ProbabilisticModel:
             lpri += self.cross_prior(*parameter_values)
         return lpri
 
-    def ln_likelihood(self, parameter_values, data):
-        model_val = self.mean_model.evaluate(data, *parameter_values[:len(self._mean_parameters)])
-        return self.data_distribution.evaluate(model_val, data)
+    def ln_likelihood(self, parameter_values, datax, datay):
+        model_val = self.mean_model.evaluate(datax, *parameter_values[:len(self._mean_parameters)])
+        return self.data_distribution.evaluate(model_val, datay, *parameter_values[-len(self._data_parameters):])
 
-    def ln_prob(self, parameter_values, data):
-        lpri = self.ln_priors(parameter_values, data)
+    def ln_prob(self, parameter_values, datax, datay):
+        lpri = self.ln_priors(parameter_values, datax, datay)
         if lpri == MINF:
             return lpri
         else:
-            llike = self.ln_likelihood(parameter_values, data)
-            return lpri + np.sum(llike)
+            llike = self.ln_likelihood(parameter_values, datax, datay)
+            return lpri + np.sum(llike, axis=-1)
