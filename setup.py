@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import re
-from glob import glob
 from setuptools import setup
 
 # Hackishly synchronize the version. Inspired by dfm's trangle.py
@@ -16,7 +15,7 @@ setup(
                 'MCMC/Bayesian inferential fitters.',
     long_description=open('README.rst').read(),
     version=version,
-    package_requires=['numpy', 'scipy', 'emcee'], #triangle.py/corner/whatever optional
+    package_requires=['numpy', 'scipy', 'astropy'],
+    python_requires='>=3.7',  #data classes
     install_requires=['setuptools']
-
 )
