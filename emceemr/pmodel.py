@@ -183,7 +183,7 @@ class ProbabilisticModel:
 
     @property
     def sample_chains(self):
-        return self.sampler.chain[:, -self.nburnin:, :]
+        return self.sampler.chain[:, self.nburnin:, :]
 
     def _update_posteriors(self):
         if self.sampler is None:
@@ -210,11 +210,15 @@ class ProbabilisticModel:
         for axi, p in zip(axs, self.parameters.values()):
             if hasattr(axi, 'shape'):
                 axi[0].plot(p.burnin_samples.T)
+                axi[0].set_xlim(0, self.nburnin)
                 axi[0].set_ylabel(p.name)
+
                 axi[1].plot(p.posterior_samples.T)
+                axi[1].set_xlim(0, p.posterior_samples.shape[1])
             else:
                 axi.plot(p.posterior_samples.T)
                 axi.set_ylabel(p.name)
+                axi.set_xlim(0, p.posterior_samples.shape[1])
         return fig
 
     _default_corner_quantiles = [special.erfc(2**-0.5), .5, special.erf(2**-0.5)]
