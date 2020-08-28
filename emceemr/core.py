@@ -93,7 +93,7 @@ class Model(object):
 
         Remaining kwargs go into emcee.EnsembleSampler
         """
-        if isinstance(nwalkers, basestring):
+        if isinstance(nwalkers, str):
             nwalkers = int(nwalkers.replace('p', '')) * len(self.param_names)
         else:
             nwalkers = int(nwalkers)

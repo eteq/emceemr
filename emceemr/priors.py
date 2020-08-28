@@ -56,14 +56,14 @@ class UniformPrior(Prior):
     parameter, in which case it should be passed in as a string
     """
     def __init__(self, lower, upper, init_from=None):
-        if isinstance(lower, basestring):
+        if isinstance(lower, str):
             self.lower = None
             self.lower_var = lower
         else:
             self.lower = lower
             self.lower_var = None
 
-        if isinstance(upper, basestring):
+        if isinstance(upper, str):
             self.upper = None
             self.upper_var = upper
         else:

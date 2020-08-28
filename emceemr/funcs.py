@@ -18,7 +18,7 @@ def triangle_plot(model, sampler, chainstoinclude='all', chainstoadd=None,
                   relabel={}, **kwargs):
     if chainstoinclude == 'all':
         msk = slice(None)
-    elif isinstance(chainstoinclude, basestring):
+    elif isinstance(chainstoinclude, str):
         rex = re.compile(chainstoinclude)
         msk = np.array([bool(rex.match(pnm)) for pnm in model.param_names])
         chains = sampler.flatchain[:, msk]
